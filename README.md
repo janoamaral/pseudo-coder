@@ -14,7 +14,7 @@ Use your preferred plugin manager. Example with `lazy.nvim`:
 
 ```lua
 {
-  "pseudo-coder/pseudo-coder.nvim",
+  "janoamaral/pseudo-coder",
   config = function()
     require("pseudo-coder").setup()
   end,
