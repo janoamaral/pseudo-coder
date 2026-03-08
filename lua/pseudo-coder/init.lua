@@ -78,6 +78,14 @@ local function sanitize_response(text)
     return cleaned
 end
 
+local function exit_visual_mode()
+    local mode = vim.fn.mode()
+    if mode:match("^[vV\22]") then
+        local esc = api.nvim_replace_termcodes("<Esc>", true, false, true)
+        api.nvim_feedkeys(esc, "n", true)
+    end
+end
+
 local function get_visual_selection()
     local bufnr = vim.api.nvim_get_current_buf()
 
@@ -236,9 +244,22 @@ local function apply_result(selection, text)
         pcall(vim.cmd, "silent! undojoin")
     end
 
+    local start_row, start_col = selection.start_row, selection.start_col
+    local delete_ok, delete_err = pcall(api.nvim_buf_set_text, selection.bufnr, selection.start_row,
+        selection.start_col, selection.end_row, selection.end_col, {})
+    if not delete_ok then
+        notify("failed to clear visual selection: " .. tostring(delete_err), vim.log.levels.ERROR)
+        return
+    end
+
+    exit_visual_mode()
+
     local lines = vim.split(cleaned, "\n", { plain = true })
-    api.nvim_buf_set_text(selection.bufnr, selection.start_row, selection.start_col, selection.end_row, selection
-        .end_col, lines)
+    local insert_ok, insert_err = pcall(api.nvim_buf_set_text, selection.bufnr, start_row, start_col, start_row,
+        start_col, lines)
+    if not insert_ok then
+        notify("failed to insert backend response: " .. tostring(insert_err), vim.log.levels.ERROR)
+    end
 end
 
 local backend_handlers = {}
