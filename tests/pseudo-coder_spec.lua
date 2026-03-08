@@ -1,5 +1,3 @@
-local api = vim.api
-
 describe("pseudo-coder", function()
   local plugin
 
@@ -33,5 +31,20 @@ print('hello')
     assert.equals(2, merged.nested.b)
     assert.equals(9, merged.nested.deep.c)
     assert.equals(4, merged.nested.d)
+  end)
+
+  it("captures visual selection spans", function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    vim.api.nvim_set_current_buf(buf)
+    vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
+      "line one",
+      "line two",
+    })
+
+    vim.api.nvim_win_set_cursor(0, { 1, 0 })
+    vim.cmd("normal! vll")
+    local selection = plugin._test.capture_selection()
+    assert.is_not_nil(selection)
+    assert.same({ "li" }, selection.lines)
   end)
 end)
