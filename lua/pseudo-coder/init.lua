@@ -14,6 +14,8 @@ local default_config = {
     },
     ui = {
         spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
+        spinner_icon = "󱚣",
+        spinner_label = "translating",
         floating_window = true,
         update_interval = 80,
     },
@@ -157,17 +159,48 @@ function Spinner.new()
     if not config.ui.floating_window then
         return nil
     end
+
+    local frames = config.ui.spinner_frames
+    if not frames or #frames == 0 then
+        frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+    end
+    local icon = config.ui.spinner_icon or "󰚩"
+    local label = config.ui.spinner_label or "translating"
+
+    local max_frame_width = 1
+    for _, frame in ipairs(frames) do
+        local width = vim.fn.strdisplaywidth(frame .. " " .. icon .. " " .. label)
+        if width > max_frame_width then
+            max_frame_width = width
+        end
+    end
+
+    local height = 1
+    local border = "rounded"
+    local border_extra = border ~= "none" and 2 or 0
+    local padding_bottom = 1
+    local padding_right = 2
+    local editor_height = math.max(0, (vim.o.lines or 0) - (vim.o.cmdheight or 0))
+    local available_bottom = math.max(0, editor_height - 1 - padding_bottom)
+    local row = math.max(0, available_bottom - (height + border_extra) + 1)
+    local available_right = math.max(0, (vim.o.columns or 0) - 1 - padding_right)
+    local col = math.max(0, available_right - (max_frame_width + border_extra) + 1)
+
     local bufnr = api.nvim_create_buf(false, true)
     local win_id = api.nvim_open_win(bufnr, false, {
-        relative = "cursor",
-        row = 1,
-        col = 1,
-        width = 3,
-        height = 1,
+        relative = "editor",
+        row = row,
+        col = col,
+        width = max_frame_width,
+        height = height,
         style = "minimal",
-        border = "rounded",
+        border = border,
     })
-    api.nvim_buf_set_lines(bufnr, 0, -1, false, { "" })
+    local function formatted_frame(idx)
+        return frames[idx] .. " " .. icon .. " " .. label
+    end
+
+    api.nvim_buf_set_lines(bufnr, 0, -1, false, { formatted_frame(1) })
 
     local timer = uv.new_timer()
     if not timer then
@@ -176,7 +209,6 @@ function Spinner.new()
         return nil
     end
 
-    local frames = config.ui.spinner_frames
     local index = 1
     timer:start(0, config.ui.update_interval, vim.schedule_wrap(function()
         if not api.nvim_win_is_valid(win_id) then
@@ -184,7 +216,7 @@ function Spinner.new()
             timer:close()
             return
         end
-        api.nvim_buf_set_lines(bufnr, 0, -1, false, { frames[index] })
+        api.nvim_buf_set_lines(bufnr, 0, -1, false, { formatted_frame(index) })
         index = (index % #frames) + 1
     end))
 
