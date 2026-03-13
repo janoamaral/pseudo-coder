@@ -3,6 +3,41 @@ local api = vim.api
 
 local M = {}
 
+local function build_transfer_frames()
+    local frames = {}
+    local track_length = 6
+    local source_icon = "󰧑 "
+    local target_icon = "󰟀 "
+    local payload_char = "█"
+    local trail_char = "▒"
+    local idle_char = "·"
+
+    local function render(position, direction)
+        local track = {}
+        for i = 1, track_length do
+            if i == position then
+                track[i] = payload_char
+            elseif direction > 0 and i == position - 1 then
+                track[i] = trail_char
+            elseif direction < 0 and i == position + 1 then
+                track[i] = trail_char
+            else
+                track[i] = idle_char
+            end
+        end
+        return source_icon .. table.concat(track) .. target_icon
+    end
+
+    for pos = 1, track_length do
+        table.insert(frames, render(pos, 1))
+    end
+    for pos = track_length - 1, 1, -1 do
+        table.insert(frames, render(pos, -1))
+    end
+
+    return frames
+end
+
 local default_config = {
     backend = "ollama",
     temperature = 0.1,
@@ -13,9 +48,9 @@ local default_config = {
         opencode = { url = "http://api.opencode.com/v1", api_key = "", model = "gpt-4" },
     },
     ui = {
-        spinner_frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
-        spinner_icon = "󱚣",
-        spinner_label = "translating",
+        spinner_frames = build_transfer_frames(),
+        spinner_icon = nil,
+        spinner_label = nil,
         floating_window = true,
         update_interval = 80,
     },
@@ -162,14 +197,28 @@ function Spinner.new()
 
     local frames = config.ui.spinner_frames
     if not frames or #frames == 0 then
-        frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }
+        frames = build_transfer_frames()
     end
-    local icon = config.ui.spinner_icon or "󰚩"
-    local label = config.ui.spinner_label or "translating"
+    local icon = config.ui.spinner_icon
+    local label = config.ui.spinner_label
+
+    local function compose(frame)
+        if icon == nil and label == nil then
+            return frame
+        end
+        local segments = { frame }
+        if icon and icon ~= "" then
+            table.insert(segments, icon)
+        end
+        if label and label ~= "" then
+            table.insert(segments, label)
+        end
+        return table.concat(segments, " ")
+    end
 
     local max_frame_width = 1
     for _, frame in ipairs(frames) do
-        local width = vim.fn.strdisplaywidth(frame .. " " .. icon .. " " .. label .. " ")
+        local width = vim.fn.strdisplaywidth(compose(frame))
         if width > max_frame_width then
             max_frame_width = width
         end
@@ -202,7 +251,7 @@ function Spinner.new()
         pcall(api.nvim_win_set_option, win_id, "winhl", "NormalFloat:Normal,FloatBorder:Normal")
     end
     local function formatted_frame(idx)
-        return frames[idx] .. " " .. icon .. " " .. label
+        return compose(frames[idx])
     end
 
     api.nvim_buf_set_lines(bufnr, 0, -1, false, { formatted_frame(1) })
