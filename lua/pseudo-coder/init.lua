@@ -169,7 +169,7 @@ function Spinner.new()
 
     local max_frame_width = 1
     for _, frame in ipairs(frames) do
-        local width = vim.fn.strdisplaywidth(frame .. " " .. icon .. " " .. label)
+        local width = vim.fn.strdisplaywidth(frame .. " " .. icon .. " " .. label .. " ")
         if width > max_frame_width then
             max_frame_width = width
         end
@@ -196,6 +196,11 @@ function Spinner.new()
         style = "minimal",
         border = border,
     })
+    if api.nvim_set_option_value then
+        pcall(api.nvim_set_option_value, "winhl", "NormalFloat:Normal,FloatBorder:Normal", { win = win_id })
+    else
+        pcall(api.nvim_win_set_option, win_id, "winhl", "NormalFloat:Normal,FloatBorder:Normal")
+    end
     local function formatted_frame(idx)
         return frames[idx] .. " " .. icon .. " " .. label
     end
